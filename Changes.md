@@ -1,5 +1,55 @@
 # Changelog
 
+## [Week 4+] Full Integration Suite — 2026-03-04
+
+### New Files
+- `code_engine/embeddings.py` — `SemanticSearch` class using ChromaDB for code embedding, similarity search, batch upsert, per-project clear
+- `integrations/github.py` — `GitHubManager` with `PullRequest`/`PRComment` dataclasses; create, list, get, merge PRs; add comments; auto-detect owner/repo from SSH/HTTPS remotes
+- `integrations/sentry.py` — `SentryClient` with `SentryError`/`SentryFrame` dataclasses; fetch unresolved issues, parse stack traces from events, generate LLM-ready fix context, resolve issues via API
+- `integrations/vercel.py` — `VercelClient` with `Deployment` dataclass; create, list, cancel deployments; promote preview to production; rollback to previous successful deploy; team/project scoping
+- `tests/test_embeddings.py` — 10 tests for ChromaDB semantic search
+- `tests/test_github_integration.py` — 13 tests for GitHub PR lifecycle and repo detection
+- `tests/test_sentry_integration.py` — 10 tests for Sentry issue fetching, stack trace parsing, resolve
+- `tests/test_vercel_integration.py` — 13 tests for Vercel deployment operations
+
+### Modified Files
+- `config/settings.py` — added `github_token`, `sentry_auth_token`, `sentry_org`, `sentry_project`, `vercel_token`, `vercel_project_id`, `vercel_team_id`, `chromadb_path` settings with env var loading
+- `agent/commands.py` — `CommandHandler` now accepts `github`, `sentry`, `vercel` params; added 6 new command methods: `add_feature`, `fix_error`, `deploy`, `errors`, `create_pr`, `setup_project`; `/status` shows active integrations; `/help` lists all 16 commands
+- `tg_bot/handlers.py` — wired 6 new Telegram handlers (add, fix, deploy, errors, pr, setup); total handlers: 16
+- `tg_bot/bot.py` — `create_bot()` now initializes all integrations (LLM, GitHub, Sentry, Vercel) from settings and passes DB to CommandHandler
+- `agent/core.py` — passes `db` instance to `create_bot()` for full integration wiring
+- `pyproject.toml` — added full dependency list with version pins (`chromadb>=0.5.0`, `httpx>=0.27.0`, etc.); added `devagent` console entry point; updated coverage source list
+- `setup.py` — mirrors pyproject.toml dependencies with `install_requires` and `extras_require`
+- `tests/conftest.py` — added `github_manager`, `sentry_client`, `vercel_client`, `semantic_search` fixtures
+- `tests/test_commands.py` — extended from 17 to 31 tests (14 new tests for add/fix/deploy/errors/pr/setup commands)
+- `tests/test_telegram_bot.py` — extended from 8 to 11 tests (3 new handler tests); handler count updated to 16
+- `tests/test_config.py` — extended from 8 to 10 tests (2 new tests for integration settings)
+
+### Test Results
+- **222 passed, 0 skipped**
+- **82% code coverage**
+
+---
+
+## [Week 4] Testing & Validation — 2026-03-04
+
+### New Files
+- `agent/safety.py` — `ValidationRunner` (runs lint/typecheck/build/test via `asyncio.create_subprocess_exec`), `SafetyManager` (checkpoint/rollback via git, branch protection, `safe_apply` orchestration), `ValidationCheck`/`ValidationResult`/`Checkpoint` dataclasses
+- `tests/test_validation.py` — 13 tests for ValidationRunner
+- `tests/test_safety.py` — 12 tests for SafetyManager
+
+### Modified Files
+- `agent/commands.py` — added `/validate` and `/undo` commands
+- `tg_bot/handlers.py` — wired 2 new Telegram handlers (validate, undo); total handlers: 10
+- `tests/conftest.py` — added `safety_manager` and `validation_runner` fixtures
+- `tests/test_telegram_bot.py` — handler count updated to 10
+
+### Test Results
+- **157 passed, 0 skipped**
+- **89% code coverage**
+
+---
+
 ## [Week 3] Basic Code Generation — 2026-03-04
 
 ### New Files
