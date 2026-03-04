@@ -14,7 +14,7 @@ class TestCreateHandlers:
         auth = AuthManager([111])
         cmd = CommandHandler()
         handlers = create_handlers(auth, cmd)
-        assert len(handlers) == 6
+        assert len(handlers) == 8
 
     def test_handler_commands(self):
         auth = AuthManager([111])
@@ -27,6 +27,8 @@ class TestCreateHandlers:
         assert frozenset({"index"}) in commands
         assert frozenset({"search"}) in commands
         assert frozenset({"find"}) in commands
+        assert frozenset({"generate"}) in commands
+        assert frozenset({"diff"}) in commands
 
 
 class TestHandlerExecution:
@@ -93,3 +95,37 @@ class TestHandlerExecution:
         update.message.reply_text.assert_called_once()
         # Should indicate no DB available since we didn't set one up
         assert "not available" in update.message.reply_text.call_args[0][0].lower()
+
+    @pytest.mark.asyncio
+    async def test_generate_handler(self):
+        auth = AuthManager([123])
+        cmd = CommandHandler()
+        handlers = create_handlers(auth, cmd)
+        gen_handler = [h for h in handlers if "generate" in h.commands][0]
+
+        update = MagicMock()
+        update.effective_user.id = 123
+        update.message.reply_text = AsyncMock()
+        context = MagicMock()
+        context.args = ["add", "login"]
+
+        await gen_handler.callback(update, context)
+        update.message.reply_text.assert_called_once()
+        assert "not configured" in update.message.reply_text.call_args[0][0].lower()
+
+    @pytest.mark.asyncio
+    async def test_diff_handler(self):
+        auth = AuthManager([123])
+        cmd = CommandHandler()
+        handlers = create_handlers(auth, cmd)
+        diff_handler = [h for h in handlers if "diff" in h.commands][0]
+
+        update = MagicMock()
+        update.effective_user.id = 123
+        update.message.reply_text = AsyncMock()
+        context = MagicMock()
+        context.args = []
+
+        await diff_handler.callback(update, context)
+        update.message.reply_text.assert_called_once()
+        assert "Usage" in update.message.reply_text.call_args[0][0]

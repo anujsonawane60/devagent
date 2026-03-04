@@ -1,5 +1,26 @@
 # Changelog
 
+## [Week 3] Basic Code Generation — 2026-03-04
+
+### New Files
+- `integrations/git.py` — `GitManager` class with `GitStatus`/`CommitResult` dataclasses; supports branch, commit, stage, diff, push operations via GitPython
+- `code_engine/generator.py` — `CodeGenerator` class with `FileChange`/`GenerationPlan`/`GenerationResult` dataclasses; LLM-powered code generation with JSON response parsing and file create/modify/delete
+
+### Modified Files
+- `agent/commands.py` — added `/generate` and `/diff` commands; `CommandHandler` now accepts optional `llm` param
+- `tg_bot/handlers.py` — wired 2 new Telegram handlers (generate, diff); total handlers: 8
+- `tests/conftest.py` — added `git_repo` and `mock_llm` fixtures
+- `tests/test_git_integration.py` — replaced skip stub with 12 tests (status, branching, staging, commit, diff, remote, dirty tree)
+- `tests/test_code_generator.py` — replaced skip stub with 15 tests (dataclasses, prompt building, JSON parsing, file operations, end-to-end)
+- `tests/test_commands.py` — extended from 11 to 17 tests (added generate/diff command tests)
+- `tests/test_telegram_bot.py` — extended from 6 to 8 tests (added generate/diff handler tests); handler count updated to 8
+
+### Test Results
+- **132 passed, 2 skipped** (stubs for Week 4)
+- **91% code coverage**
+
+---
+
 ## [Week 2] Code Indexing & Search — 2026-03-04
 
 ### New Files

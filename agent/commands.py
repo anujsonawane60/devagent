@@ -1,8 +1,11 @@
 """Business logic for bot commands."""
 
 from code_engine.analyzer import ProjectAnalyzer
+from code_engine.generator import CodeGenerator
 from code_engine.parser import CodeParser
 from code_engine.search import CodeSearchEngine
+from config.llm import LLMProvider
+from integrations.git import GitManager
 from storage.db import Database
 
 
@@ -11,9 +14,11 @@ class CommandHandler:
         self,
         analyzer: ProjectAnalyzer | None = None,
         db: Database | None = None,
+        llm: LLMProvider | None = None,
     ):
         self.analyzer = analyzer or ProjectAnalyzer()
         self.db = db
+        self.llm = llm
         self._search_engine: CodeSearchEngine | None = None
         self._parser: CodeParser | None = None
 
@@ -37,7 +42,9 @@ class CommandHandler:
             "/analyze <path> - Analyze a project directory\n"
             "/index <path> - Index a project for code search\n"
             "/search <query> - Search indexed code\n"
-            "/find <name> - Find a definition by name"
+            "/find <name> - Find a definition by name\n"
+            "/generate <task> - Generate code changes for a task\n"
+            "/diff <path> - Show current git diff"
         )
 
     def status(self) -> str:
@@ -94,3 +101,38 @@ class CommandHandler:
             f"File: {result['file_path']}:{result['line_start']}\n"
             f"Signature: {result.get('signature', 'N/A')}"
         )
+
+    async def generate(self, task: str, project_path: str) -> str:
+        """Generate code changes for a task using the LLM."""
+        if not task:
+            return "Usage: /generate <task description>"
+        if self.llm is None:
+            return "LLM provider not configured."
+        context_builder = None
+        if self.search_engine is not None:
+            from agent.context import ContextBuilder
+            context_builder = ContextBuilder(self.search_engine)
+        generator = CodeGenerator(self.llm, context_builder=context_builder)
+        plan = await generator.generate_plan(task, project_path)
+        if not plan.changes:
+            return "No changes generated for the given task."
+        result = generator.apply_plan(plan, project_path)
+        if result.success:
+            lines = [f"Generated {len(plan.changes)} change(s):"]
+            for c in plan.changes:
+                lines.append(f"  [{c.action}] {c.file_path} — {c.description}")
+            return "\n".join(lines)
+        return f"Generation failed: {result.error}"
+
+    def diff(self, project_path: str) -> str:
+        """Show the current git diff for a project."""
+        if not project_path:
+            return "Usage: /diff <path>"
+        try:
+            gm = GitManager(project_path)
+            diff_output = gm.get_diff()
+            if not diff_output:
+                return "No unstaged changes."
+            return f"Git diff:\n{diff_output}"
+        except Exception as e:
+            return f"Git error: {e}"

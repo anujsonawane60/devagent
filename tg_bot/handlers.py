@@ -41,6 +41,17 @@ def create_handlers(auth_manager: AuthManager, command_handler: CommandHandler) 
         result = await command_handler.find(name)
         await update.message.reply_text(result)
 
+    @require_auth(auth_manager)
+    async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        task = " ".join(context.args) if context.args else ""
+        result = await command_handler.generate(task, project_path="")
+        await update.message.reply_text(result)
+
+    @require_auth(auth_manager)
+    async def diff_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        path = " ".join(context.args) if context.args else ""
+        await update.message.reply_text(command_handler.diff(path))
+
     return [
         TGCommandHandler("help", help_command),
         TGCommandHandler("status", status_command),
@@ -48,4 +59,6 @@ def create_handlers(auth_manager: AuthManager, command_handler: CommandHandler) 
         TGCommandHandler("index", index_command),
         TGCommandHandler("search", search_command),
         TGCommandHandler("find", find_command),
+        TGCommandHandler("generate", generate_command),
+        TGCommandHandler("diff", diff_command),
     ]
