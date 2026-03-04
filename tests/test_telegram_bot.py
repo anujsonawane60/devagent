@@ -14,7 +14,7 @@ class TestCreateHandlers:
         auth = AuthManager([111])
         cmd = CommandHandler()
         handlers = create_handlers(auth, cmd)
-        assert len(handlers) == 3
+        assert len(handlers) == 6
 
     def test_handler_commands(self):
         auth = AuthManager([111])
@@ -24,6 +24,9 @@ class TestCreateHandlers:
         assert frozenset({"help"}) in commands
         assert frozenset({"status"}) in commands
         assert frozenset({"analyze"}) in commands
+        assert frozenset({"index"}) in commands
+        assert frozenset({"search"}) in commands
+        assert frozenset({"find"}) in commands
 
 
 class TestHandlerExecution:
@@ -72,3 +75,21 @@ class TestHandlerExecution:
 
         await help_handler.callback(update, context)
         update.message.reply_text.assert_called_once_with("Unauthorized. Access denied.")
+
+    @pytest.mark.asyncio
+    async def test_search_handler(self):
+        auth = AuthManager([123])
+        cmd = CommandHandler()
+        handlers = create_handlers(auth, cmd)
+        search_handler = [h for h in handlers if "search" in h.commands][0]
+
+        update = MagicMock()
+        update.effective_user.id = 123
+        update.message.reply_text = AsyncMock()
+        context = MagicMock()
+        context.args = ["test"]
+
+        await search_handler.callback(update, context)
+        update.message.reply_text.assert_called_once()
+        # Should indicate no DB available since we didn't set one up
+        assert "not available" in update.message.reply_text.call_args[0][0].lower()

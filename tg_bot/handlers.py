@@ -23,8 +23,29 @@ def create_handlers(auth_manager: AuthManager, command_handler: CommandHandler) 
         path = " ".join(context.args) if context.args else ""
         await update.message.reply_text(command_handler.analyze(path))
 
+    @require_auth(auth_manager)
+    async def index_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        path = " ".join(context.args) if context.args else ""
+        result = await command_handler.index(path)
+        await update.message.reply_text(result)
+
+    @require_auth(auth_manager)
+    async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = " ".join(context.args) if context.args else ""
+        result = await command_handler.search(query)
+        await update.message.reply_text(result)
+
+    @require_auth(auth_manager)
+    async def find_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        name = " ".join(context.args) if context.args else ""
+        result = await command_handler.find(name)
+        await update.message.reply_text(result)
+
     return [
         TGCommandHandler("help", help_command),
         TGCommandHandler("status", status_command),
         TGCommandHandler("analyze", analyze_command),
+        TGCommandHandler("index", index_command),
+        TGCommandHandler("search", search_command),
+        TGCommandHandler("find", find_command),
     ]
