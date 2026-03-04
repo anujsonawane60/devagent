@@ -52,6 +52,52 @@ def create_handlers(auth_manager: AuthManager, command_handler: CommandHandler) 
         path = " ".join(context.args) if context.args else ""
         await update.message.reply_text(command_handler.diff(path))
 
+    @require_auth(auth_manager)
+    async def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        path = " ".join(context.args) if context.args else ""
+        result = await command_handler.validate(path)
+        await update.message.reply_text(result)
+
+    @require_auth(auth_manager)
+    async def undo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        path = " ".join(context.args) if context.args else ""
+        await update.message.reply_text(command_handler.undo(path))
+
+    @require_auth(auth_manager)
+    async def add_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        description = " ".join(context.args) if context.args else ""
+        result = await command_handler.add_feature(description, project_path="")
+        await update.message.reply_text(result)
+
+    @require_auth(auth_manager)
+    async def fix_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        issue_id = " ".join(context.args) if context.args else ""
+        result = await command_handler.fix_error(issue_id, project_path="")
+        await update.message.reply_text(result)
+
+    @require_auth(auth_manager)
+    async def deploy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        env = " ".join(context.args) if context.args else ""
+        result = await command_handler.deploy(env, project_path="")
+        await update.message.reply_text(result)
+
+    @require_auth(auth_manager)
+    async def errors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        result = await command_handler.errors()
+        await update.message.reply_text(result)
+
+    @require_auth(auth_manager)
+    async def pr_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        title = " ".join(context.args) if context.args else ""
+        result = await command_handler.create_pr(title, project_path="")
+        await update.message.reply_text(result)
+
+    @require_auth(auth_manager)
+    async def setup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        path = " ".join(context.args) if context.args else ""
+        result = await command_handler.setup_project(path)
+        await update.message.reply_text(result)
+
     return [
         TGCommandHandler("help", help_command),
         TGCommandHandler("status", status_command),
@@ -61,4 +107,12 @@ def create_handlers(auth_manager: AuthManager, command_handler: CommandHandler) 
         TGCommandHandler("find", find_command),
         TGCommandHandler("generate", generate_command),
         TGCommandHandler("diff", diff_command),
+        TGCommandHandler("validate", validate_command),
+        TGCommandHandler("undo", undo_command),
+        TGCommandHandler("add", add_command),
+        TGCommandHandler("fix", fix_command),
+        TGCommandHandler("deploy", deploy_command),
+        TGCommandHandler("errors", errors_command),
+        TGCommandHandler("pr", pr_command),
+        TGCommandHandler("setup", setup_command),
     ]

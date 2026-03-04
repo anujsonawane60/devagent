@@ -23,7 +23,7 @@ async def run_agent():
     await db.connect()
 
     try:
-        app = create_bot(settings)
+        app = create_bot(settings, db=db)
         logger.info("DevAgent started. Polling for messages...")
         await app.run_polling()
     finally:

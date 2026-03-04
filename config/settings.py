@@ -17,6 +17,14 @@ class Settings:
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
     db_path: str = "devagent.db"
+    chromadb_path: str = "devagent_chroma"
+    github_token: str = ""
+    sentry_auth_token: str = ""
+    sentry_org: str = ""
+    sentry_project: str = ""
+    vercel_token: str = ""
+    vercel_project_id: str = ""
+    vercel_team_id: str = ""
     debug: bool = False
 
     @classmethod
@@ -38,6 +46,14 @@ class Settings:
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4o"),
             db_path=os.getenv("DB_PATH", "devagent.db"),
+            chromadb_path=os.getenv("CHROMADB_PATH", "devagent_chroma"),
+            github_token=os.getenv("GITHUB_TOKEN", ""),
+            sentry_auth_token=os.getenv("SENTRY_AUTH_TOKEN", ""),
+            sentry_org=os.getenv("SENTRY_ORG", ""),
+            sentry_project=os.getenv("SENTRY_PROJECT", ""),
+            vercel_token=os.getenv("VERCEL_TOKEN", ""),
+            vercel_project_id=os.getenv("VERCEL_PROJECT_ID", ""),
+            vercel_team_id=os.getenv("VERCEL_TEAM_ID", ""),
             debug=os.getenv("DEBUG", "false").lower() in ("true", "1", "yes"),
         )
 

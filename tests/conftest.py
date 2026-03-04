@@ -82,6 +82,26 @@ def git_repo(tmp_path):
 
 
 @pytest.fixture
+def safety_manager(git_repo):
+    """Create a SafetyManager backed by a temp git repo with an initial commit."""
+    from agent.safety import SafetyManager
+    tmp_path, repo = git_repo
+    # Need at least one commit for checkpoints
+    readme = tmp_path / "README.md"
+    readme.write_text("# Test Project\n")
+    repo.index.add(["README.md"])
+    repo.index.commit("Initial commit")
+    return SafetyManager(str(tmp_path))
+
+
+@pytest.fixture
+def validation_runner(tmp_path):
+    """Create a ValidationRunner with a temp project path."""
+    from agent.safety import ValidationRunner
+    return ValidationRunner(str(tmp_path))
+
+
+@pytest.fixture
 def mock_llm():
     """Create a mock LLM provider."""
     llm = AsyncMock(spec=LLMProvider)
@@ -92,3 +112,31 @@ def mock_llm():
         usage={"input_tokens": 10, "output_tokens": 20},
     )
     return llm
+
+
+@pytest.fixture
+def github_manager():
+    """Create a GitHubManager with a test token."""
+    from integrations.github import GitHubManager
+    return GitHubManager(token="test-token", repo_owner="testowner", repo_name="testrepo")
+
+
+@pytest.fixture
+def sentry_client():
+    """Create a SentryClient with test credentials."""
+    from integrations.sentry import SentryClient
+    return SentryClient(auth_token="test-token", org_slug="test-org", project_slug="test-project")
+
+
+@pytest.fixture
+def vercel_client():
+    """Create a VercelClient with test credentials."""
+    from integrations.vercel import VercelClient
+    return VercelClient(token="test-token", project_id="prj_test", team_id="team_test")
+
+
+@pytest.fixture
+def semantic_search(tmp_path):
+    """Create a SemanticSearch with a temp ChromaDB path."""
+    from code_engine.embeddings import SemanticSearch
+    return SemanticSearch(persist_path=str(tmp_path / "chroma"), collection_name="test_entities")
