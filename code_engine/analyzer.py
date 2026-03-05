@@ -63,19 +63,52 @@ class ProjectAnalyzer:
         # Detect config files
         manifest.config_files = self._find_config_files(path)
 
-        # Detect language and framework
+        # Detect language and framework at root level
         if (path / "package.json").exists():
             self._analyze_node_project(path, manifest)
         elif (path / "requirements.txt").exists() or (path / "setup.py").exists() or (path / "pyproject.toml").exists():
             self._analyze_python_project(path, manifest)
 
+        # If root detection failed, scan immediate subdirectories (monorepo support)
+        if manifest.language == "unknown":
+            sub_manifests = self._analyze_monorepo(path)
+            if sub_manifests:
+                languages = list({m.language for m in sub_manifests})
+                frameworks = [m.framework for m in sub_manifests if m.framework != "unknown"]
+                all_deps = []
+                for m in sub_manifests:
+                    all_deps.extend(m.dependencies)
+                manifest.language = " + ".join(languages)
+                manifest.framework = " + ".join(frameworks) if frameworks else "unknown"
+                manifest.dependencies = all_deps
+                manifest.entry_points = [ep for m in sub_manifests for ep in m.entry_points]
+                # Include subproject config files with their subdir prefix
+                for m in sub_manifests:
+                    subdir = Path(m.path).name
+                    manifest.config_files.extend(f"{subdir}/{cf}" for cf in m.config_files)
+
         # Detect TypeScript
-        manifest.has_typescript = (path / "tsconfig.json").exists()
+        manifest.has_typescript = (path / "tsconfig.json").exists() or any(
+            (path / d / "tsconfig.json").exists() for d in os.listdir(path)
+            if (path / d).is_dir() and not d.startswith(".")
+        )
 
         # Detect entry points
-        manifest.entry_points = self._find_entry_points(path)
+        manifest.entry_points = manifest.entry_points or self._find_entry_points(path)
 
         return manifest
+
+    def _analyze_monorepo(self, path: Path) -> List[ProjectManifest]:
+        """Scan immediate subdirectories for sub-projects."""
+        sub_manifests = []
+        skip_dirs = {"node_modules", ".git", "__pycache__", "venv", ".venv", "dist", "build"}
+        for child in sorted(path.iterdir()):
+            if not child.is_dir() or child.name in skip_dirs or child.name.startswith("."):
+                continue
+            sub = self.analyze(str(child))
+            if sub.language != "unknown":
+                sub_manifests.append(sub)
+        return sub_manifests
 
     def _analyze_node_project(self, path: Path, manifest: ProjectManifest) -> None:
         manifest.language = "javascript"

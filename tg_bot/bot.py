@@ -1,6 +1,9 @@
 """Telegram bot application builder."""
 
-from telegram.ext import ApplicationBuilder
+import logging
+
+from telegram import Update
+from telegram.ext import ApplicationBuilder, ContextTypes
 
 from agent.commands import CommandHandler
 from config.llm import create_llm_provider
@@ -12,6 +15,20 @@ from storage.db import Database
 from tg_bot.auth import AuthManager
 from tg_bot.handlers import create_handlers
 
+logger = logging.getLogger(__name__)
+
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send errors to the user instead of crashing silently."""
+    logger.error("Exception while handling an update:", exc_info=context.error)
+    if isinstance(update, Update) and update.message:
+        error_name = type(context.error).__name__
+        error_msg = str(context.error)
+        # Truncate long error messages for Telegram
+        if len(error_msg) > 300:
+            error_msg = error_msg[:300] + "..."
+        await update.message.reply_text(f"Error: {error_name}\n{error_msg}")
+
 
 def create_bot(settings: Settings, db: Database | None = None) -> "Application":
     """Build and configure the Telegram bot application with all integrations."""
@@ -20,10 +37,9 @@ def create_bot(settings: Settings, db: Database | None = None) -> "Application":
     # Create LLM provider
     llm = None
     try:
-        if settings.llm_provider == "anthropic" and settings.anthropic_api_key:
-            llm = create_llm_provider("anthropic", settings.anthropic_api_key, settings.anthropic_model)
-        elif settings.llm_provider == "openai" and settings.openai_api_key:
-            llm = create_llm_provider("openai", settings.openai_api_key, settings.openai_model)
+        api_key = settings.get_llm_api_key()
+        if api_key:
+            llm = create_llm_provider(settings.llm_provider, api_key, settings.get_llm_model())
     except Exception:
         pass
 
@@ -62,5 +78,7 @@ def create_bot(settings: Settings, db: Database | None = None) -> "Application":
 
     for handler in create_handlers(auth_manager, command_handler):
         app.add_handler(handler)
+
+    app.add_error_handler(error_handler)
 
     return app

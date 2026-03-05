@@ -33,6 +33,17 @@ class CommandHandler:
         self.vercel = vercel
         self._search_engine: CodeSearchEngine | None = None
         self._parser: CodeParser | None = None
+        self.project_path: str = ""  # Set by /setup, used by all commands
+
+    def _resolve_path(self, path: str = "") -> str:
+        """Resolve a project path: use argument if given, otherwise stored project_path."""
+        if path and os.path.isabs(path):
+            return path
+        if path and self.project_path:
+            return os.path.join(self.project_path, path)
+        if path:
+            return os.path.abspath(path)
+        return self.project_path
 
     @property
     def search_engine(self) -> CodeSearchEngine | None:
@@ -47,24 +58,31 @@ class CommandHandler:
         return self._parser
 
     def help(self) -> str:
+        project_info = f"\n\nActive project: {self.project_path}" if self.project_path else "\n\n⚠️ No project set. Run /setup <path> first."
         return (
-            "DevAgent Commands:\n"
-            "/help - Show this message\n"
-            "/status - Show bot status\n"
-            "/analyze <path> - Analyze a project directory\n"
-            "/index <path> - Index a project for code search\n"
-            "/search <query> - Search indexed code\n"
-            "/find <name> - Find a definition by name\n"
-            "/generate <task> - Generate code changes for a task\n"
-            "/diff <path> - Show current git diff\n"
-            "/validate <path> - Run project validation checks\n"
-            "/undo <path> - Rollback last change\n"
-            "/add <feature description> - Build a feature on a new branch\n"
-            "/fix [issue_id] - Auto-fix a Sentry error\n"
-            "/deploy <staging|production> - Deploy via Vercel\n"
-            "/errors - Show recent Sentry errors\n"
-            "/pr <title> - Create a GitHub pull request\n"
-            "/setup <path> - Initialize DevAgent for a project"
+            "DevAgent Commands:\n\n"
+            "Setup:\n"
+            "  /setup <path> - Initialize DevAgent for a project\n"
+            "  /status - Show bot status and active project\n\n"
+            "Code Understanding:\n"
+            "  /analyze - Analyze project structure\n"
+            "  /index - Index codebase for search\n"
+            "  /search <query> - Search indexed code\n"
+            "  /find <name> - Find a definition by name\n\n"
+            "Code Generation:\n"
+            "  /generate <task> - Generate code changes\n"
+            "  /add <feature> - Build a feature (branch, generate, validate, commit)\n"
+            "  /diff - Show current git diff\n\n"
+            "Safety:\n"
+            "  /validate - Run lint, typecheck, build, test\n"
+            "  /undo - Rollback last change\n\n"
+            "Bug Fixing:\n"
+            "  /errors - Show recent Sentry errors\n"
+            "  /fix [issue_id] - Auto-fix a Sentry error\n\n"
+            "Deploy & PRs:\n"
+            "  /deploy <staging|production> - Deploy via Vercel\n"
+            "  /pr <title> - Create a GitHub pull request"
+            + project_info
         )
 
     def status(self) -> str:
@@ -79,14 +97,19 @@ class CommandHandler:
             integrations.append("Vercel")
         if self.db:
             integrations.append("DB")
-        status_parts = ["DevAgent is running. Ready to assist."]
+        status_parts = ["DevAgent is running."]
+        if self.project_path:
+            status_parts.append(f"Project: {self.project_path}")
+        else:
+            status_parts.append("Project: not set (run /setup <path>)")
         if integrations:
             status_parts.append(f"Active: {', '.join(integrations)}")
         return "\n".join(status_parts)
 
-    def analyze(self, project_path: str) -> str:
+    def analyze(self, project_path: str = "") -> str:
+        project_path = self._resolve_path(project_path)
         if not project_path:
-            return "Usage: /analyze <path>"
+            return "No project set. Run /setup <path> first."
         manifest = self.analyzer.analyze(project_path)
         if manifest.language == "unknown":
             return f"Could not detect project at: {project_path}"
@@ -98,10 +121,11 @@ class CommandHandler:
             f"Entry points: {', '.join(manifest.entry_points)}"
         )
 
-    async def index(self, project_path: str) -> str:
+    async def index(self, project_path: str = "") -> str:
         """Index a project for code search."""
+        project_path = self._resolve_path(project_path)
         if not project_path:
-            return "Usage: /index <path>"
+            return "No project set. Run /setup <path> first."
         if self.search_engine is None:
             return "Database not available."
         count = await self.search_engine.index_project(project_path, self.parser)
@@ -136,12 +160,15 @@ class CommandHandler:
             f"Signature: {result.get('signature', 'N/A')}"
         )
 
-    async def generate(self, task: str, project_path: str) -> str:
+    async def generate(self, task: str, project_path: str = "") -> str:
         """Generate code changes for a task using the LLM."""
         if not task:
             return "Usage: /generate <task description>"
         if self.llm is None:
             return "LLM provider not configured."
+        project_path = self._resolve_path(project_path)
+        if not project_path:
+            return "No project set. Run /setup <path> first."
         context_builder = None
         if self.search_engine is not None:
             from agent.context import ContextBuilder
@@ -158,10 +185,11 @@ class CommandHandler:
             return "\n".join(lines)
         return f"Generation failed: {result.error}"
 
-    async def validate(self, project_path: str) -> str:
+    async def validate(self, project_path: str = "") -> str:
         """Run validation checks on a project."""
+        project_path = self._resolve_path(project_path)
         if not project_path:
-            return "Usage: /validate <path>"
+            return "No project set. Run /setup <path> first."
         runner = ValidationRunner(project_path)
         checks = runner.detect_checks()
         if not checks:
@@ -169,10 +197,11 @@ class CommandHandler:
         result = await runner.run_all(checks)
         return result.summary
 
-    def undo(self, project_path: str) -> str:
+    def undo(self, project_path: str = "") -> str:
         """Rollback to the last checkpoint."""
+        project_path = self._resolve_path(project_path)
         if not project_path:
-            return "Usage: /undo <path>"
+            return "No project set. Run /setup <path> first."
         try:
             sm = SafetyManager(project_path)
             checkpoints = sm.get_checkpoints()
@@ -184,10 +213,11 @@ class CommandHandler:
         except Exception as e:
             return f"Undo error: {e}"
 
-    def diff(self, project_path: str) -> str:
+    def diff(self, project_path: str = "") -> str:
         """Show the current git diff for a project."""
+        project_path = self._resolve_path(project_path)
         if not project_path:
-            return "Usage: /diff <path>"
+            return "No project set. Run /setup <path> first."
         try:
             gm = GitManager(project_path)
             diff_output = gm.get_diff()
@@ -197,14 +227,15 @@ class CommandHandler:
         except Exception as e:
             return f"Git error: {e}"
 
-    async def add_feature(self, description: str, project_path: str) -> str:
+    async def add_feature(self, description: str, project_path: str = "") -> str:
         """Build a feature: create branch, generate code, validate, commit."""
         if not description:
             return "Usage: /add <feature description>"
         if self.llm is None:
             return "LLM provider not configured."
+        project_path = self._resolve_path(project_path)
         if not project_path:
-            return "Usage: /add <feature description> (set project path first)"
+            return "No project set. Run /setup <path> first."
 
         try:
             # Set up safety manager and feature branch
@@ -246,7 +277,7 @@ class CommandHandler:
         except Exception as e:
             return f"Feature error: {e}"
 
-    async def fix_error(self, issue_id: str, project_path: str) -> str:
+    async def fix_error(self, issue_id: str, project_path: str = "") -> str:
         """Auto-fix a Sentry error: fetch details, generate fix, validate, commit."""
         if self.sentry is None:
             return "Sentry not configured. Set SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT."
@@ -254,6 +285,8 @@ class CommandHandler:
             return "LLM provider not configured."
 
         try:
+            project_path = self._resolve_path(project_path)
+
             # If no issue_id, get the latest unresolved issue
             if not issue_id:
                 issues = await self.sentry.get_issues(limit=1)
@@ -310,7 +343,7 @@ class CommandHandler:
         except Exception as e:
             return f"Fix error: {e}"
 
-    async def deploy(self, environment: str, project_path: str) -> str:
+    async def deploy(self, environment: str, project_path: str = "") -> str:
         """Deploy via Vercel to staging or production."""
         if self.vercel is None:
             return "Vercel not configured. Set VERCEL_TOKEN and VERCEL_PROJECT_ID."
@@ -322,6 +355,7 @@ class CommandHandler:
             return "Environment must be 'staging' or 'production'."
 
         try:
+            project_path = self._resolve_path(project_path)
             # Get current branch for deployment
             target = "production" if env == "production" else "preview"
             branch = "main"
@@ -367,7 +401,7 @@ class CommandHandler:
         except Exception as e:
             return f"Sentry error: {e}"
 
-    async def create_pr(self, title: str, project_path: str) -> str:
+    async def create_pr(self, title: str, project_path: str = "") -> str:
         """Create a GitHub pull request for the current branch."""
         if self.github is None:
             return "GitHub not configured. Set GITHUB_TOKEN."
@@ -375,6 +409,7 @@ class CommandHandler:
             return "Usage: /pr <title>"
 
         try:
+            project_path = self._resolve_path(project_path)
             # Detect repo from git remote
             if project_path:
                 gm = GitManager(project_path)
@@ -400,11 +435,15 @@ class CommandHandler:
     async def setup_project(self, project_path: str) -> str:
         """Initialize DevAgent for a project: analyze, index, detect checks."""
         if not project_path:
-            return "Usage: /setup <path>"
+            return "Usage: /setup <path>\n\nExample: /setup G:\\personal-relationship-manager"
+        project_path = os.path.abspath(project_path)
         if not os.path.isdir(project_path):
             return f"Directory not found: {project_path}"
 
-        lines = ["Setting up DevAgent...\n"]
+        # Store the project path for all future commands
+        self.project_path = project_path
+
+        lines = [f"Setting up DevAgent for: {project_path}\n"]
 
         # 1. Analyze project
         manifest = self.analyzer.analyze(project_path)

@@ -9,6 +9,7 @@ setup(
         "python-telegram-bot>=21.0",
         "anthropic>=0.39.0",
         "openai>=1.50.0",
+        "google-genai>=1.0.0",
         "aiosqlite>=0.20.0",
         "python-dotenv>=1.0.0",
         "tree-sitter>=0.23.0",

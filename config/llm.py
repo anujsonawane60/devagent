@@ -1,4 +1,11 @@
-"""LLM provider abstraction layer."""
+"""LLM provider abstraction layer.
+
+Supported providers:
+  - anthropic  (Claude)
+  - openai     (GPT-4o, Codex, o1, etc.)
+  - gemini     (Google Gemini)
+  - deepseek   (DeepSeek — uses OpenAI-compatible API)
+"""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -61,15 +68,22 @@ class AnthropicProvider(LLMProvider):
 
 
 class OpenAIProvider(LLMProvider):
-    def __init__(self, api_key: str, model: str = "gpt-4o"):
+    """Supports OpenAI and any OpenAI-compatible API (DeepSeek, etc.)."""
+
+    def __init__(self, api_key: str, model: str = "gpt-4o", base_url: str | None = None, provider_label: str = "openai"):
         self.api_key = api_key
         self.model = model
+        self.base_url = base_url
+        self._provider_label = provider_label
         self._client = None
 
     def _get_client(self):
         if self._client is None:
             import openai
-            self._client = openai.AsyncOpenAI(api_key=self.api_key)
+            kwargs = {"api_key": self.api_key}
+            if self.base_url:
+                kwargs["base_url"] = self.base_url
+            self._client = openai.AsyncOpenAI(**kwargs)
         return self._client
 
     async def generate(self, messages: List[LLMMessage], **kwargs) -> LLMResponse:
@@ -87,14 +101,67 @@ class OpenAIProvider(LLMProvider):
         )
 
     def provider_name(self) -> str:
-        return "openai"
+        return self._provider_label
 
 
-def create_llm_provider(provider: str, api_key: str, model: str | None = None) -> LLMProvider:
+class GeminiProvider(LLMProvider):
+    """Google Gemini via the google-generativeai SDK."""
+
+    def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
+        self.api_key = api_key
+        self.model = model
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            from google import genai
+            self._client = genai.Client(api_key=self.api_key)
+        return self._client
+
+    async def generate(self, messages: List[LLMMessage], **kwargs) -> LLMResponse:
+        client = self._get_client()
+        # Convert messages to Gemini format: combine into a single prompt
+        # Gemini uses "user" and "model" roles
+        contents = []
+        for m in messages:
+            role = "model" if m.role == "assistant" else "user"
+            contents.append({"role": role, "parts": [{"text": m.content}]})
+
+        response = await client.aio.models.generate_content(
+            model=self.model,
+            contents=contents,
+            config={"max_output_tokens": kwargs.get("max_tokens", 4096)},
+        )
+        usage = {}
+        if response.usage_metadata:
+            usage = {
+                "prompt_tokens": response.usage_metadata.prompt_token_count,
+                "completion_tokens": response.usage_metadata.candidates_token_count,
+            }
+        return LLMResponse(
+            content=response.text,
+            model=self.model,
+            usage=usage,
+        )
+
+    def provider_name(self) -> str:
+        return "gemini"
+
+
+def create_llm_provider(provider: str, api_key: str, model: str | None = None, base_url: str | None = None) -> LLMProvider:
     """Factory function to create LLM provider instances."""
     if provider == "anthropic":
         return AnthropicProvider(api_key=api_key, model=model or "claude-sonnet-4-20250514")
     elif provider == "openai":
         return OpenAIProvider(api_key=api_key, model=model or "gpt-4o")
+    elif provider == "gemini":
+        return GeminiProvider(api_key=api_key, model=model or "gemini-2.0-flash")
+    elif provider == "deepseek":
+        return OpenAIProvider(
+            api_key=api_key,
+            model=model or "deepseek-chat",
+            base_url="https://api.deepseek.com",
+            provider_label="deepseek",
+        )
     else:
-        raise ValueError(f"Unknown LLM provider: {provider}")
+        raise ValueError(f"Unknown LLM provider: {provider}. Supported: anthropic, openai, gemini, deepseek")

@@ -7,6 +7,9 @@ from typing import List
 from dotenv import load_dotenv
 
 
+SUPPORTED_PROVIDERS = ("anthropic", "openai", "gemini", "deepseek")
+
+
 @dataclass
 class Settings:
     telegram_bot_token: str = ""
@@ -16,6 +19,10 @@ class Settings:
     anthropic_model: str = "claude-sonnet-4-20250514"
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
+    deepseek_api_key: str = ""
+    deepseek_model: str = "deepseek-chat"
     db_path: str = "devagent.db"
     chromadb_path: str = "devagent_chroma"
     github_token: str = ""
@@ -45,6 +52,10 @@ class Settings:
             anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514"),
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4o"),
+            gemini_api_key=os.getenv("GEMINI_API_KEY", ""),
+            gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+            deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", ""),
+            deepseek_model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
             db_path=os.getenv("DB_PATH", "devagent.db"),
             chromadb_path=os.getenv("CHROMADB_PATH", "devagent_chroma"),
             github_token=os.getenv("GITHUB_TOKEN", ""),
@@ -57,15 +68,32 @@ class Settings:
             debug=os.getenv("DEBUG", "false").lower() in ("true", "1", "yes"),
         )
 
+    def get_llm_api_key(self) -> str:
+        """Get the API key for the configured LLM provider."""
+        return {
+            "anthropic": self.anthropic_api_key,
+            "openai": self.openai_api_key,
+            "gemini": self.gemini_api_key,
+            "deepseek": self.deepseek_api_key,
+        }.get(self.llm_provider, "")
+
+    def get_llm_model(self) -> str:
+        """Get the model name for the configured LLM provider."""
+        return {
+            "anthropic": self.anthropic_model,
+            "openai": self.openai_model,
+            "gemini": self.gemini_model,
+            "deepseek": self.deepseek_model,
+        }.get(self.llm_provider, "")
+
     def validate(self) -> List[str]:
         """Validate settings. Returns list of error messages (empty = valid)."""
         errors = []
         if not self.telegram_bot_token:
             errors.append("TELEGRAM_BOT_TOKEN is required")
-        if self.llm_provider not in ("anthropic", "openai"):
-            errors.append(f"LLM_PROVIDER must be 'anthropic' or 'openai', got '{self.llm_provider}'")
-        if self.llm_provider == "anthropic" and not self.anthropic_api_key:
-            errors.append("ANTHROPIC_API_KEY is required when LLM_PROVIDER is 'anthropic'")
-        if self.llm_provider == "openai" and not self.openai_api_key:
-            errors.append("OPENAI_API_KEY is required when LLM_PROVIDER is 'openai'")
+        if self.llm_provider not in SUPPORTED_PROVIDERS:
+            errors.append(f"LLM_PROVIDER must be one of {SUPPORTED_PROVIDERS}, got '{self.llm_provider}'")
+        elif not self.get_llm_api_key():
+            key_name = f"{self.llm_provider.upper()}_API_KEY"
+            errors.append(f"{key_name} is required when LLM_PROVIDER is '{self.llm_provider}'")
         return errors

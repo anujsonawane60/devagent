@@ -1,5 +1,32 @@
 # Changelog
 
+## [Week 5] Runtime Fixes & Multi-LLM Support — 2026-03-05
+
+### Bug Fixes
+- `agent/core.py` — Fixed "event loop already running" crash on startup; replaced `app.run_polling()` with lower-level async API (`app.updater.start_polling()` + `app.start()`) for proper Windows compatibility
+- `agent/commands.py` — Added `project_path` persistence; `/setup` now stores the path and all subsequent commands (`/analyze`, `/index`, `/generate`, `/add`, `/validate`, `/diff`, `/undo`, `/deploy`, `/pr`, `/fix`) use it automatically without requiring a path argument each time
+- `agent/commands.py` — Added `_resolve_path()` helper for consistent path resolution (absolute, relative to project, or stored default)
+- `code_engine/analyzer.py` — Fixed "Could not detect project" for monorepo layouts; added `_analyze_monorepo()` that scans immediate subdirectories (e.g. `frontend/`, `backend/`) and combines results when root-level detection fails
+- `tg_bot/bot.py` — Added global `error_handler` so LLM/API errors are sent back to the user in Telegram instead of crashing silently
+
+### New Features
+- `config/llm.py` — Added **Gemini** provider (`GeminiProvider` using `google-genai` SDK) and **DeepSeek** provider (via OpenAI-compatible API with custom `base_url`); total supported providers: Anthropic, OpenAI, Gemini, DeepSeek
+- `config/settings.py` — Added `gemini_api_key`, `gemini_model`, `deepseek_api_key`, `deepseek_model` settings; added `get_llm_api_key()` and `get_llm_model()` helpers; validation now supports all 4 providers
+- `tg_bot/handlers.py` — Added `/start` command (shows user ID and auth status), added plain text handler (directs users to use `/help`)
+- `tg_bot/bot.py` — Simplified LLM provider creation using new `Settings` helper methods
+
+### Modified Files
+- `agent/core.py` — Rewrote `main()` with proper async lifecycle and graceful shutdown (Ctrl+C)
+- `agent/commands.py` — All path-dependent commands now default to stored `project_path`; updated `/help` with categorized command listing and active project display; `/status` shows current project path
+- `config/llm.py` — `OpenAIProvider` now accepts `base_url` and `provider_label` for OpenAI-compatible APIs; `create_llm_provider()` factory supports `gemini` and `deepseek`
+- `config/settings.py` — Added `SUPPORTED_PROVIDERS` constant; `validate()` uses dynamic key name lookup
+- `tg_bot/handlers.py` — Removed hardcoded `project_path=""` from handler calls; handlers now rely on `CommandHandler`'s stored path
+- `code_engine/analyzer.py` — `analyze()` falls back to monorepo scanning; TypeScript detection checks subdirectories
+- `setup.py` — Added `google-genai>=1.0.0` dependency
+- `.env.example` — Updated with all 4 LLM provider configurations
+
+---
+
 ## [Week 4+] Full Integration Suite — 2026-03-04
 
 ### New Files
