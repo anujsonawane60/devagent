@@ -6,6 +6,7 @@ build/
 venv/
 .env
 *.db
+data/
 .pytest_cache/
 .coverage
 htmlcov/
