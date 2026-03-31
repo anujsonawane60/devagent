@@ -1,8 +1,24 @@
+# Core agent framework
 langchain>=0.3.0
 langchain-openai>=0.3.0
 langgraph>=0.2.0
+
+# Multi-LLM providers (install as needed)
+langchain-anthropic>=0.3.0
+# langchain-google-genai>=2.0  # Uncomment for Gemini support
+
+# Supervisor pattern
+langgraph-supervisor>=0.0.30
+
+# Telegram bot
 python-telegram-bot>=21.0
+
+# Database
 aiosqlite>=0.20.0
+
+# Config
 pydantic-settings>=2.0
-duckduckgo-search>=7.0
 python-dotenv>=1.0
+
+# Tools
+duckduckgo-search>=7.0

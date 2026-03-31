@@ -1,11 +1,9 @@
-from langchain_openai import ChatOpenAI
+# Legacy module — kept for backward compatibility.
+# Use jarvis.core.llm_factory instead.
 
-from jarvis.config import settings
+from jarvis.core.llm_factory import create_llm
 
 
-def get_llm() -> ChatOpenAI:
-    return ChatOpenAI(
-        model=settings.OPENAI_MODEL,
-        api_key=settings.OPENAI_API_KEY,
-        temperature=0.7,
-    )
+def get_llm():
+    """Deprecated: use create_llm() from jarvis.core.llm_factory."""
+    return create_llm()

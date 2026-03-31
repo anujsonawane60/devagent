@@ -1,9 +1,11 @@
 from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from jarvis.brain.llm import get_llm
-from jarvis.brain.memory import save_message, get_history
+from jarvis.core.context import UserContext
+from jarvis.core.llm_factory import create_llm
+from jarvis.db.repositories import ConversationRepo
 from jarvis.tools.registry import get_all_tools
+from jarvis.config import settings
 
 SYSTEM_PROMPT = """You are JARVIS, a highly capable personal AI assistant — intelligent, proactive, and loyal.
 
@@ -24,13 +26,14 @@ Your capabilities:
 Always think about what the user actually needs, not just what they literally asked for."""
 
 
-async def run_agent(chat_id: str, user_message: str) -> str:
-    llm = get_llm()
+async def run_agent(ctx: UserContext, user_message: str) -> str:
+    """Run the single agent (Phase 1). Will be replaced by supervisor in Phase 2."""
+    llm = create_llm()
     tools = get_all_tools()
     agent = create_react_agent(llm, tools)
 
     # Load conversation history
-    history = await get_history(chat_id)
+    history = await ConversationRepo.get_history(ctx.chat_id, settings.MEMORY_WINDOW)
     messages = [SystemMessage(content=SYSTEM_PROMPT)]
     for msg in history:
         if msg["role"] == "user":
@@ -40,16 +43,22 @@ async def run_agent(chat_id: str, user_message: str) -> str:
     messages.append(HumanMessage(content=user_message))
 
     # Save user message
-    await save_message(chat_id, "user", user_message)
+    await ConversationRepo.save_message(ctx.user_id, ctx.chat_id, "user", user_message)
 
-    # Run the agent
-    result = await agent.ainvoke({"messages": messages})
+    # Run the agent with user context in config
+    config = {
+        "configurable": {
+            "user_context": ctx.to_dict(),
+            "thread_id": ctx.chat_id,
+        }
+    }
+    result = await agent.ainvoke({"messages": messages}, config=config)
 
     # Extract the final response
     final_message = result["messages"][-1]
     response = final_message.content
 
     # Save assistant response
-    await save_message(chat_id, "assistant", response)
+    await ConversationRepo.save_message(ctx.user_id, ctx.chat_id, "assistant", response)
 
     return response

@@ -2,8 +2,9 @@ import asyncio
 import logging
 
 from jarvis.config import settings
-from jarvis.db.database import init_db
-from jarvis.bot.telegram import create_bot_app
+from jarvis.db.database import init_db, Database
+from jarvis.agents.supervisor import build_supervisor
+from jarvis.interfaces.telegram import create_bot_app
 
 
 def setup_logging():
@@ -22,6 +23,9 @@ async def main():
 
     logger.info("Initializing database...")
     await init_db()
+
+    logger.info("Building supervisor and sub-agents...")
+    build_supervisor()
 
     logger.info("Starting JARVIS...")
     app = create_bot_app()
@@ -53,6 +57,7 @@ async def main():
             await app.updater.stop()
             await app.stop()
             await app.shutdown()
+            await Database.close()
 
 
 if __name__ == "__main__":

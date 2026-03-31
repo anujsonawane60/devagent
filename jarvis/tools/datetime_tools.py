@@ -8,6 +8,7 @@ def get_current_time(timezone_name: str = "UTC") -> str:
     """Get the current date and time. Optionally specify a timezone like 'Asia/Kolkata', 'US/Eastern', etc."""
     try:
         from zoneinfo import ZoneInfo
+
         tz = ZoneInfo(timezone_name)
     except (ImportError, KeyError):
         tz = timezone.utc
