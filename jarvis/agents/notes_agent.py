@@ -1,5 +1,5 @@
 from jarvis.core.base_agent import AgentDefinition
-from jarvis.tools.note_tools import save_note, search_notes, list_notes
+from jarvis.tools.note_tools import save_note, search_notes, list_notes, delete_note
 
 SYSTEM_PROMPT = """You are a Notes & Knowledge Management specialist agent. You help users save and retrieve personal information.
 
@@ -20,5 +20,5 @@ def get_agent_definition() -> AgentDefinition:
         name="notes_agent",
         description="Manages personal notes and knowledge. Delegate when the user wants to save information, recall something they saved, or browse their notes.",
         system_prompt=SYSTEM_PROMPT,
-        tools=[save_note, search_notes, list_notes],
+        tools=[save_note, search_notes, list_notes, delete_note],
     )

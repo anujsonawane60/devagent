@@ -10,6 +10,11 @@ AGENT_MODULES = [
     "jarvis.agents.task_agent",
     "jarvis.agents.research_agent",
     "jarvis.agents.notes_agent",
+    "jarvis.agents.contacts_agent",
+    "jarvis.agents.thoughts_agent",
+    "jarvis.agents.vault_agent",
+    "jarvis.agents.memory_agent",
+    "jarvis.agents.scheduler_agent",
 ]
 
 

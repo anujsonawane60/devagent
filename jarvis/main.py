@@ -5,6 +5,7 @@ from jarvis.config import settings
 from jarvis.db.database import init_db, Database
 from jarvis.agents.supervisor import build_supervisor
 from jarvis.interfaces.telegram import create_bot_app
+from jarvis.scheduler.runner import SchedulerRunner
 
 
 def setup_logging():
@@ -30,6 +31,9 @@ async def main():
     logger.info("Starting JARVIS...")
     app = create_bot_app()
 
+    # Start background scheduler (checks for due jobs every 30s)
+    scheduler = SchedulerRunner(bot=app.bot)
+
     if settings.WEBHOOK_URL:
         # Webhook mode for EC2 deployment
         logger.info(f"Starting in webhook mode: {settings.WEBHOOK_URL}")
@@ -45,6 +49,10 @@ async def main():
         await app.initialize()
         await app.start()
         await app.updater.start_polling(drop_pending_updates=True)
+
+        # Start the scheduler after bot is ready
+        scheduler.start()
+
         logger.info("JARVIS is online! Send a message to your Telegram bot.")
 
         # Keep running until interrupted
@@ -54,6 +62,7 @@ async def main():
         except (KeyboardInterrupt, SystemExit):
             logger.info("Shutting down...")
         finally:
+            await scheduler.stop()
             await app.updater.stop()
             await app.stop()
             await app.shutdown()

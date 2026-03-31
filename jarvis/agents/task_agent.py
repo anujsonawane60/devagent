@@ -1,5 +1,5 @@
 from jarvis.core.base_agent import AgentDefinition
-from jarvis.tools.task_tools import create_task, list_tasks, complete_task
+from jarvis.tools.task_tools import create_task, list_tasks, complete_task, delete_task
 
 SYSTEM_PROMPT = """You are a Task Management specialist agent. You help users organize their work with tasks and reminders.
 
@@ -20,5 +20,5 @@ def get_agent_definition() -> AgentDefinition:
         name="task_agent",
         description="Manages tasks, to-do lists, and reminders. Delegate when the user wants to create, list, update, or complete tasks.",
         system_prompt=SYSTEM_PROMPT,
-        tools=[create_task, list_tasks, complete_task],
+        tools=[create_task, list_tasks, complete_task, delete_task],
     )

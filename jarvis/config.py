@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
 from pathlib import Path
 
 
@@ -22,6 +22,22 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     # JSON list of allowed Telegram user IDs. Empty = allow all (dev mode).
     TELEGRAM_ALLOWED_USERS: list[str] = Field(default_factory=list)
+
+    @field_validator("TELEGRAM_ALLOWED_USERS", mode="before")
+    @classmethod
+    def _coerce_user_ids_to_str(cls, v):
+        if isinstance(v, list):
+            return [str(x) for x in v]
+        return v
+
+    # --- Encryption ---
+    ENCRYPTION_KEY: str = ""  # Fernet key for encrypting sensitive data. Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
+    # --- Vector Search ---
+    VECTOR_DB_ENABLED: bool = True
+    VECTOR_DB_PATH: str = str(Path(__file__).parent.parent / "data" / "vectors")
+    EMBEDDING_PROVIDER: str = "openai"  # "openai" or "ollama"
+    EMBEDDING_MODEL: str = "text-embedding-3-small"  # or "nomic-embed-text" for Ollama
 
     # --- Database ---
     DATABASE_PATH: str = str(Path(__file__).parent.parent / "data" / "jarvis.db")

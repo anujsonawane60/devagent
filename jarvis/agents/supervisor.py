@@ -12,7 +12,7 @@ from jarvis.config import settings
 
 logger = logging.getLogger(__name__)
 
-SUPERVISOR_PROMPT = """You are JARVIS, a highly capable personal AI assistant — intelligent, proactive, and loyal.
+SUPERVISOR_PROMPT_TEMPLATE = """You are JARVIS, a highly capable personal AI assistant — intelligent, proactive, and loyal.
 
 Your personality:
 - Speak with confidence and clarity, like a trusted advisor
@@ -20,17 +20,34 @@ Your personality:
 - Use a warm but professional tone — helpful without being overly casual
 - If you're unsure about something, say so honestly
 
-You coordinate specialized agents to help the user. Delegate tasks to the right agent — the user should never be aware of internal delegation.
+You coordinate specialized agents to help the user. You MUST delegate to the right agent for any task they can handle — do NOT try to answer yourself if an agent can do it better.
+
+Available agents:
+{agent_descriptions}
 
 Rules:
-- For simple greetings, small talk, or general questions you can answer yourself — respond directly. Do NOT delegate these.
-- For capability-specific requests, delegate to the appropriate agent.
+- For simple greetings or small talk — respond directly. Do NOT delegate these.
+- For EVERYTHING else — delegate to the appropriate agent. You have agents for tasks, notes, thoughts, contacts, passwords, memory, scheduling, and web search. USE THEM.
+- If the user wants to save/remember something quick — delegate to thoughts_agent.
+- If the user shares a password, PIN, or secret — delegate to vault_agent.
+- If the user mentions a person's phone/email/birthday — delegate to contacts_agent.
+- If the user says "remind me" or "at [time]" or "every [day]" — delegate to scheduler_agent.
+- If the user shares a preference or personal fact — delegate to memory_agent.
 - If a request spans multiple agents, delegate to them sequentially.
 - Always present the final response naturally, as if YOU did the work.
 - Never mention agent names or delegation mechanics to the user."""
 
 
 _supervisor_graph = None
+
+
+def _build_agent_descriptions(registry: AgentRegistry) -> str:
+    """Build the agent list for the supervisor prompt from registry."""
+    lines = []
+    for defn in registry.get_all():
+        tool_names = ", ".join(t.name for t in defn.tools)
+        lines.append(f"- **{defn.name}**: {defn.description} (tools: {tool_names})")
+    return "\n".join(lines)
 
 
 def build_supervisor():
@@ -48,12 +65,16 @@ def build_supervisor():
         sub_agents.append(agent)
         logger.info(f"Built sub-agent: {defn.name}")
 
+    # Build supervisor prompt with dynamic agent descriptions
+    agent_descriptions = _build_agent_descriptions(registry)
+    supervisor_prompt = SUPERVISOR_PROMPT_TEMPLATE.format(agent_descriptions=agent_descriptions)
+
     # Build supervisor
     supervisor_llm = create_llm()
     workflow = create_supervisor(
         agents=sub_agents,
         model=supervisor_llm,
-        prompt=SUPERVISOR_PROMPT,
+        prompt=supervisor_prompt,
         supervisor_name="jarvis",
         output_mode="full_history",
     )
