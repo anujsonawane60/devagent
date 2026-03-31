@@ -14,6 +14,10 @@ You ── Telegram ── Jarvis (supervisor)
                       └── Scheduler Agent    (future actions)
 ```
 
+**[See all agents & tools](Agents.md)** | **[Demo & test cases](Demo.md)** | **[Architecture plan](Plan.md)**
+
+---
+
 ## Quick Start
 
 ### Prerequisites
@@ -330,6 +334,9 @@ See [Agents.md](Agents.md) for the full agent reference.
 
 ## Docs
 
-- [Plan.md](Plan.md) — Architecture plan and implementation phases
-- [Agents.md](Agents.md) — Full agent reference with all tools and examples
-- [Changes.md](Changes.md) — Changelog
+| Document | Description |
+|----------|-------------|
+| [Agents.md](Agents.md) | Full agent reference — all 8 agents, 30 tools, routing table, example triggers |
+| [Demo.md](Demo.md) | 46 test cases with exact inputs, expected actions, and a checklist to verify everything works |
+| [Plan.md](Plan.md) | Architecture plan, design decisions, and implementation phases |
+| [Changes.md](Changes.md) | Changelog |
