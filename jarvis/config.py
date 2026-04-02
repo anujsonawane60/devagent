@@ -39,6 +39,28 @@ class Settings(BaseSettings):
     EMBEDDING_PROVIDER: str = "openai"  # "openai" or "ollama"
     EMBEDDING_MODEL: str = "text-embedding-3-small"  # or "nomic-embed-text" for Ollama
 
+    # --- Google (Gmail + Calendar) ---
+    GOOGLE_CREDENTIALS_PATH: str = ""  # path to OAuth credentials.json from Google Cloud Console
+    GOOGLE_TOKEN_PATH: str = str(Path(__file__).parent.parent / "data" / "google_token.json")
+
+    # --- GitHub ---
+    GITHUB_TOKEN: str = ""  # Personal access token from https://github.com/settings/tokens
+
+    # --- Twilio (SMS + WhatsApp) ---
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_PHONE_NUMBER: str = ""       # e.g., "+1234567890" (for SMS)
+    TWILIO_WHATSAPP_NUMBER: str = ""    # e.g., "whatsapp:+14155238886" (sandbox)
+
+    # --- Notion ---
+    NOTION_TOKEN: str = ""  # Internal integration token
+
+    # --- Spotify ---
+    SPOTIFY_CLIENT_ID: str = ""
+    SPOTIFY_CLIENT_SECRET: str = ""
+    SPOTIFY_REDIRECT_URI: str = "http://localhost:8888/callback"
+    SPOTIFY_TOKEN_PATH: str = str(Path(__file__).parent.parent / "data" / "spotify_token.json")
+
     # --- Database ---
     DATABASE_PATH: str = str(Path(__file__).parent.parent / "data" / "jarvis.db")
 

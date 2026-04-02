@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 # Modules that export get_agent_definition(). Add new agents here.
 AGENT_MODULES = [
+    # Core agents
     "jarvis.agents.task_agent",
     "jarvis.agents.research_agent",
     "jarvis.agents.notes_agent",
@@ -15,6 +16,13 @@ AGENT_MODULES = [
     "jarvis.agents.vault_agent",
     "jarvis.agents.memory_agent",
     "jarvis.agents.scheduler_agent",
+    # Integration agents
+    "jarvis.agents.email_agent",
+    "jarvis.agents.calendar_agent",
+    "jarvis.agents.github_agent",
+    "jarvis.agents.messaging_agent",
+    "jarvis.agents.notion_agent",
+    "jarvis.agents.spotify_agent",
 ]
 
 

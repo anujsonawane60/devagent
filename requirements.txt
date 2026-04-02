@@ -27,3 +27,22 @@ python-dotenv>=1.0
 
 # Tools
 duckduckgo-search>=7.0
+
+# === Integrations (install only what you need) ===
+
+# Google (Gmail + Calendar)
+google-api-python-client>=2.0
+google-auth-oauthlib>=1.0
+google-auth-httplib2>=0.2
+
+# GitHub
+PyGithub>=2.0
+
+# SMS & WhatsApp (Twilio)
+twilio>=9.0
+
+# Notion
+notion-client>=2.0
+
+# Spotify
+spotipy>=2.24
