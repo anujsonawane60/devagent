@@ -23,6 +23,8 @@ AGENT_MODULES = [
     "jarvis.agents.messaging_agent",
     "jarvis.agents.notion_agent",
     "jarvis.agents.spotify_agent",
+    # SSM (Social Media Manager)
+    "jarvis.ssm.agent",
 ]
 
 

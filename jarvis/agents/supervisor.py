@@ -33,6 +33,8 @@ Rules:
 - If the user mentions a person's phone/email/birthday — delegate to contacts_agent.
 - If the user says "remind me" or "at [time]" or "every [day]" — delegate to scheduler_agent.
 - If the user shares a preference or personal fact — delegate to memory_agent.
+- If the user wants to create, edit, manage, or plan social media content — delegate to ssm_agent.
+- If the user mentions "post", "content", "LinkedIn", "Instagram", "Facebook", "Twitter", or "social media" — delegate to ssm_agent.
 - If a request spans multiple agents, delegate to them sequentially.
 - Always present the final response naturally, as if YOU did the work.
 - Never mention agent names or delegation mechanics to the user."""

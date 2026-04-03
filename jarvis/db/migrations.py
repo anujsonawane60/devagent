@@ -274,10 +274,46 @@ async def _migrate_to_v2(db: aiosqlite.Connection):
     logger.info("Schema v2 applied — contacts, thoughts, vault, memories, schedules, tags.")
 
 
+# ─────────────────────────────────────────────────────────────────
+#  SCHEMA v3 — Social Media Manager (SSM Agent)
+# ─────────────────────────────────────────────────────────────────
+
+SCHEMA_V3 = """
+-- ── SSM POSTS ────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS ssm_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    platform TEXT NOT NULL,              -- linkedin, instagram, facebook, twitter
+    content TEXT NOT NULL,               -- the generated post text
+    hashtags TEXT,                        -- comma-separated hashtags
+    media_suggestion TEXT,               -- AI-suggested image/visual description
+    call_to_action TEXT,                 -- suggested CTA text
+    topic TEXT,                          -- original topic/prompt from user
+    tone TEXT DEFAULT 'professional',    -- professional, casual, inspirational, humorous
+    target_audience TEXT,                -- developers, founders, general
+    status TEXT DEFAULT 'draft',         -- draft, approved, posted, archived
+    is_pinned INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    posted_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_ssm_posts_user ON ssm_posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_ssm_posts_platform ON ssm_posts(user_id, platform);
+CREATE INDEX IF NOT EXISTS idx_ssm_posts_status ON ssm_posts(user_id, status);
+"""
+
+
+async def _migrate_to_v3(db: aiosqlite.Connection):
+    """Add SSM (Social Media Manager) tables."""
+    await db.executescript(SCHEMA_V3)
+    logger.info("Schema v3 applied — social media posts table.")
+
+
 # Migration registry: version → function
 MIGRATIONS = {
     1: _migrate_to_v1,
     2: _migrate_to_v2,
+    3: _migrate_to_v3,
 }
 
 LATEST_VERSION = max(MIGRATIONS.keys())

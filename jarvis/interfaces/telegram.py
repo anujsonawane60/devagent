@@ -1,11 +1,13 @@
 import logging
+import re
 import tempfile
 from pathlib import Path
 
 from openai import OpenAI
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     MessageHandler,
     filters,
@@ -15,7 +17,7 @@ from telegram.ext import (
 from jarvis.agents.supervisor import run_supervisor
 from jarvis.core.context import UserContext
 from jarvis.auth.authenticator import Authenticator
-from jarvis.db.repositories import ConversationRepo, UserRepo
+from jarvis.db.repositories import ConversationRepo, SocialPostRepo, UserRepo
 from jarvis.config import settings
 
 logger = logging.getLogger(__name__)
@@ -109,6 +111,97 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Conversation history cleared. Fresh start!")
 
 
+def _build_ssm_keyboard(post_ids: list[int]) -> InlineKeyboardMarkup | None:
+    """Build inline keyboard buttons for SSM post actions."""
+    if not post_ids:
+        return None
+
+    buttons = []
+    for pid in post_ids:
+        buttons.append([
+            InlineKeyboardButton("✏️ Edit", callback_data=f"ssm_edit:{pid}"),
+            InlineKeyboardButton("📋 Copy", callback_data=f"ssm_copy:{pid}"),
+            InlineKeyboardButton("🗑 Delete", callback_data=f"ssm_del:{pid}"),
+            InlineKeyboardButton("🔄 Regen", callback_data=f"ssm_regen:{pid}"),
+        ])
+        buttons.append([
+            InlineKeyboardButton("✅ Approve", callback_data=f"ssm_approve:{pid}"),
+            InlineKeyboardButton("🚀 Mark Posted", callback_data=f"ssm_posted:{pid}"),
+        ])
+    return InlineKeyboardMarkup(buttons)
+
+
+def _extract_ssm_post_ids(text: str) -> list[int]:
+    """Extract post IDs like (#5) or (#12) from SSM response text."""
+    return [int(m) for m in re.findall(r"#(\d+)", text) if m.isdigit()]
+
+
+async def handle_ssm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle inline button presses for SSM posts."""
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data
+    if not data or ":" not in data:
+        return
+
+    action, post_id_str = data.split(":", 1)
+    try:
+        post_id = int(post_id_str)
+    except ValueError:
+        return
+
+    user_id = str(query.from_user.id)
+    chat_id = str(query.message.chat_id)
+
+    post = await SocialPostRepo.get(user_id, post_id)
+    if not post:
+        await query.message.reply_text(f"Post #{post_id} not found.")
+        return
+
+    if action == "ssm_copy":
+        # Send the raw post content for easy copying
+        await query.message.reply_text(
+            f"📋 Copy this {post['platform'].upper()} post:\n\n{post['content']}",
+        )
+
+    elif action == "ssm_del":
+        await SocialPostRepo.delete(user_id, post_id)
+        await query.message.reply_text(f"🗑️ Post #{post_id} deleted.")
+
+    elif action == "ssm_approve":
+        await SocialPostRepo.update(user_id, post_id, status="approved")
+        await query.message.reply_text(f"✅ Post #{post_id} approved!")
+
+    elif action == "ssm_posted":
+        await SocialPostRepo.mark_posted(user_id, post_id)
+        await query.message.reply_text(f"🚀 Post #{post_id} marked as posted!")
+
+    elif action == "ssm_edit":
+        # Prompt user for edit instruction
+        context.user_data["ssm_editing"] = post_id
+        await query.message.reply_text(
+            f"✏️ Editing post #{post_id} ({post['platform'].upper()})\n\n"
+            "What changes do you want? (e.g., 'make it shorter', 'more professional', 'add emojis')"
+        )
+
+    elif action == "ssm_regen":
+        # Regenerate using the original topic
+        await query.message.chat.send_action("typing")
+        ctx = UserContext(
+            user_id=user_id,
+            chat_id=chat_id,
+            platform="telegram",
+            username=query.from_user.username,
+            display_name=query.from_user.full_name,
+        )
+        regen_msg = f"Regenerate a {post['platform']} post about: {post.get('topic', post['content'][:100])}"
+        response = await run_supervisor(ctx, regen_msg)
+        post_ids = _extract_ssm_post_ids(response)
+        keyboard = _build_ssm_keyboard(post_ids)
+        await query.message.reply_text(response, reply_markup=keyboard)
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
@@ -136,6 +229,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_message:
         return
 
+    # Handle SSM inline edit flow
+    editing_id = context.user_data.get("ssm_editing")
+    if editing_id:
+        del context.user_data["ssm_editing"]
+        user_message = f"Edit social media post #{editing_id}: {user_message}"
+
     logger.info(f"[{ctx.user_id}] User: {user_message[:100]}")
 
     # Show typing indicator
@@ -143,12 +242,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         response = await run_supervisor(ctx, user_message)
+
+        # Check if response contains SSM posts — add inline buttons
+        post_ids = _extract_ssm_post_ids(response)
+        is_ssm_response = any(
+            marker in response
+            for marker in ["📱 **", "━━ LINKEDIN", "━━ INSTAGRAM", "━━ FACEBOOK", "━━ TWITTER", "SSM Post", "social media post"]
+        )
+        keyboard = _build_ssm_keyboard(post_ids) if is_ssm_response and post_ids else None
+
         # Telegram has a 4096 char limit per message
         if len(response) > 4096:
-            for i in range(0, len(response), 4096):
-                await update.message.reply_text(response[i : i + 4096])
+            chunks = [response[i : i + 4096] for i in range(0, len(response), 4096)]
+            for i, chunk in enumerate(chunks):
+                # Attach keyboard to the last chunk only
+                markup = keyboard if i == len(chunks) - 1 else None
+                await update.message.reply_text(chunk, reply_markup=markup)
         else:
-            await update.message.reply_text(response)
+            await update.message.reply_text(response, reply_markup=keyboard)
     except Exception as e:
         logger.error(f"Error processing message: {e}", exc_info=True)
         await update.message.reply_text(
@@ -162,6 +273,8 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("clear", clear_command))
+    # SSM inline button callbacks
+    app.add_handler(CallbackQueryHandler(handle_ssm_callback, pattern=r"^ssm_"))
     # Handle text messages, voice notes, and audio messages
     app.add_handler(MessageHandler(
         (filters.TEXT | filters.VOICE | filters.AUDIO) & ~filters.COMMAND,

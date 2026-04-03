@@ -921,3 +921,114 @@ class ScheduledJobRepo:
         for row in rows:
             row["payload"] = json.loads(row.get("payload") or "{}")
         return rows
+
+
+# ─────────────────────────────────────────────────────────────────
+#  SSM POSTS (Social Media Manager)
+# ─────────────────────────────────────────────────────────────────
+
+
+class SocialPostRepo:
+    @staticmethod
+    async def create(
+        user_id: str,
+        platform: str,
+        content: str,
+        hashtags: str | None = None,
+        media_suggestion: str | None = None,
+        call_to_action: str | None = None,
+        topic: str | None = None,
+        tone: str = "professional",
+        target_audience: str | None = None,
+        status: str = "draft",
+    ) -> int:
+        db = await get_db()
+        cursor = await db.execute(
+            """INSERT INTO ssm_posts
+               (user_id, platform, content, hashtags, media_suggestion,
+                call_to_action, topic, tone, target_audience, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, platform, content, hashtags, media_suggestion,
+             call_to_action, topic, tone, target_audience, status),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+    @staticmethod
+    async def get(user_id: str, post_id: int) -> dict | None:
+        db = await get_db()
+        cursor = await db.execute(
+            "SELECT * FROM ssm_posts WHERE id = ? AND user_id = ?",
+            (post_id, user_id),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+    @staticmethod
+    async def list_posts(
+        user_id: str,
+        platform: str | None = None,
+        status: str | None = None,
+        limit: int = 20,
+    ) -> list[dict]:
+        conditions = ["user_id = ?"]
+        params: list = [user_id]
+        if platform:
+            conditions.append("platform = ?")
+            params.append(platform)
+        if status:
+            conditions.append("status = ?")
+            params.append(status)
+        params.append(limit)
+        db = await get_db()
+        cursor = await db.execute(
+            f"SELECT * FROM ssm_posts WHERE {' AND '.join(conditions)} ORDER BY created_at DESC LIMIT ?",
+            params,
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
+    @staticmethod
+    async def update(user_id: str, post_id: int, **fields) -> bool:
+        if not fields:
+            return False
+        updates = [f"{k} = ?" for k in fields]
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        values = list(fields.values()) + [post_id, user_id]
+        db = await get_db()
+        cursor = await db.execute(
+            f"UPDATE ssm_posts SET {', '.join(updates)} WHERE id = ? AND user_id = ?",
+            values,
+        )
+        await db.commit()
+        return cursor.rowcount > 0
+
+    @staticmethod
+    async def delete(user_id: str, post_id: int) -> bool:
+        db = await get_db()
+        cursor = await db.execute(
+            "DELETE FROM ssm_posts WHERE id = ? AND user_id = ?",
+            (post_id, user_id),
+        )
+        await db.commit()
+        return cursor.rowcount > 0
+
+    @staticmethod
+    async def mark_posted(user_id: str, post_id: int) -> bool:
+        db = await get_db()
+        cursor = await db.execute(
+            "UPDATE ssm_posts SET status = 'posted', posted_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
+            (post_id, user_id),
+        )
+        await db.commit()
+        return cursor.rowcount > 0
+
+    @staticmethod
+    async def search(user_id: str, query: str, limit: int = 20) -> list[dict]:
+        db = await get_db()
+        cursor = await db.execute(
+            """SELECT * FROM ssm_posts
+               WHERE user_id = ? AND (content LIKE ? OR topic LIKE ? OR hashtags LIKE ?)
+               ORDER BY created_at DESC LIMIT ?""",
+            (user_id, f"%{query}%", f"%{query}%", f"%{query}%", limit),
+        )
+        return [dict(row) for row in await cursor.fetchall()]
