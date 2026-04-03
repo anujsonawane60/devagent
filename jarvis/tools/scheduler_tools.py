@@ -1,8 +1,13 @@
+from datetime import datetime, timedelta, timezone
+
 from langchain_core.tools import tool
 from langchain_core.runnables import RunnableConfig
 
 from jarvis.db.repositories import ScheduledJobRepo
 from jarvis.tools import get_user_context
+
+# IST = UTC+5:30
+IST = timezone(timedelta(hours=5, minutes=30))
 
 
 @tool
@@ -17,9 +22,22 @@ async def schedule_action(
     config: RunnableConfig,
 ) -> str:
     """Schedule a future action. action_type can be: send_message, reminder, recurring_task.
-    scheduled_at format: YYYY-MM-DDTHH:MM:SS (e.g., 2026-04-01T00:00:00).
+    scheduled_at format: YYYY-MM-DDTHH:MM:SS in IST (e.g., 2026-04-01T11:30:00).
     recurrence_rule: daily, weekly:mon, weekly:mon,fri, monthly:15, yearly:04-01."""
     ctx = get_user_context(config)
+
+    # Validate that scheduled_at is in the future
+    try:
+        scheduled_dt = datetime.fromisoformat(scheduled_at)
+        now = datetime.now(IST).replace(tzinfo=None)
+        if scheduled_dt < now:
+            return (
+                f"Error: The scheduled time {scheduled_at} is in the past. "
+                f"Current time is {now.strftime('%Y-%m-%dT%H:%M:%S')} IST. "
+                f"Please use a future time."
+            )
+    except ValueError:
+        return f"Error: Invalid datetime format '{scheduled_at}'. Use YYYY-MM-DDTHH:MM:SS format."
 
     payload = {}
     if message:

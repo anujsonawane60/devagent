@@ -12,7 +12,7 @@ Supported actions:
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from telegram import Bot
 
@@ -22,6 +22,9 @@ from jarvis.db.repositories import ScheduledJobRepo, ContactRepo
 logger = logging.getLogger(__name__)
 
 POLL_INTERVAL = 30  # seconds between checks
+
+# IST = UTC+5:30
+IST = timezone(timedelta(hours=5, minutes=30))
 
 
 class SchedulerRunner:
@@ -63,7 +66,7 @@ class SchedulerRunner:
 
     async def _process_due_jobs(self):
         """Find and execute all jobs that are due."""
-        now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        now = datetime.now(IST).strftime("%Y-%m-%dT%H:%M:%S")
         jobs = await ScheduledJobRepo.get_due_jobs(now)
 
         for job in jobs:

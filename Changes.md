@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-04-03 — Fix Scheduler Firing Reminders Immediately
+
+### Bug
+- User sets a reminder for 11:30 AM, bot sends it immediately at 10:17 AM instead of waiting
+
+### Root Cause
+1. **Scheduler agent had no awareness of current date/time** — LLM couldn't convert "at 11:30 AM" to a correct absolute datetime, often picking a past date
+2. **Runner used UTC, agent generated IST** — `datetime.utcnow()` in runner vs IST times from the LLM caused a 5:30h mismatch
+3. **No validation** — past datetimes were accepted and fired on the next 30s poll cycle
+
+### Fixes
+- `scheduler_agent.py` — Inject current date/time (IST) into the agent's system prompt so the LLM knows "now"
+- `scheduler_tools.py` — Added future-time validation in `schedule_action`; rejects past datetimes with an error message back to the LLM
+- `runner.py` — Changed `datetime.utcnow()` → `datetime.now(IST)` so due-time checks use the same timezone as scheduled times
+
+---
+
 ## 2026-04-01 — Full Data Layer + Vector Search + 6 Integration Agents
 
 ### Complete Data Storage (models.py)
